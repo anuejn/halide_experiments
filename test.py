@@ -63,7 +63,7 @@ output = hl.Buffer(hl.UInt(8), [4096, 3072, 3])
 
 unpacked = Unpack(input_buffer)
 reshaped = Reshape(unpacked.func)
-debayered = Debayer(reshaped.func, cfa="RGBG")
+debayered = Debayer(reshaped.func, cfa="RGGB")
 in_8bit = To8Bit(debayered.func)
 
 ### schedule
@@ -71,15 +71,14 @@ x_outer, x_inner, y_outer, y_inner = hl.Var("x_outer"), hl.Var("x_inner"), hl.Va
 
 unpacked.func.store_at(in_8bit.func, y_outer)
 unpacked.func.compute_at(in_8bit.func, y_outer)
-unpacked.func.vectorize(unpacked.i, 32)
-
-in_8bit.func.tile(in_8bit.vars[0], in_8bit.vars[1], x_outer, y_outer, x_inner, y_inner, 32, 32)
+unpacked.func.vectorize(unpacked.i, 128)
+in_8bit.func.tile(in_8bit.vars[0], in_8bit.vars[1], x_outer, y_outer, x_inner, y_inner, 256, 8)
 in_8bit.func.vectorize(x_inner)
 in_8bit.func.parallel(y_outer)
 
 
 
 in_8bit.func.realize(output)
-print(1 / (min(repeat(lambda: in_8bit.func.realize(output), number=10, repeat=5)) / 10), "fps")
+print(1 / (min(repeat(lambda: in_8bit.func.realize(output), number=10, repeat=100)) / 10), "fps")
 
-# halide.imageio.imwrite("output.png", output)
+halide.imageio.imwrite("output.png", output)
