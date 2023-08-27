@@ -10,7 +10,8 @@
 , blas
 , lapack
 , git
-, buildPythonBindings ? true, python3
+, python3
+, buildPythonBindings ? false
 }:
 
 assert blas.implementation == "openblas" && lapack.implementation == "openblas";
@@ -26,7 +27,12 @@ llvmPackages_15.stdenv.mkDerivation rec {
     sha256 = "sha256-mnZ6QMqDr48bH2W+andGZj2EhajXKApjuW6B50xtzx0=";
   };
 
-  cmakeFlags = [ "-DWARNINGS_AS_ERRORS=OFF" "-DWITH_PYTHON_BINDINGS=ON" "-DPYBIND11_USE_FETCHCONTENT=OFF" "-DTARGET_WEBASSEMBLY=OFF" ];
+  cmakeFlags = [ 
+    "-DWARNINGS_AS_ERRORS=OFF"
+    "-DTARGET_WEBASSEMBLY=OFF"
+    ("-DWITH_PYTHON_BINDINGS=" + (if buildPythonBindings then "ON" else "OFF"))
+    "-DPYBIND11_USE_FETCHCONTENT=OFF" 
+  ];
 
   # Note: only openblas and not atlas part of this Nix expression
   # see pkgs/development/libraries/science/math/liblapack/3.5.0.nix
