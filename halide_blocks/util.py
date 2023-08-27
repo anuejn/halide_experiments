@@ -15,19 +15,12 @@ def lightness(input):
 def clamp(input, *clamps):
     func = hl.Func("clamp")
     indices = [hl.Var() for _ in range(input.dimensions())]
-    func.__setitem__(
-        indices,
-        input.__getitem__([hl.max(hl.min(idx, max), min) for idx, (min, max) in zip(indices, clamps)])
-    )
+    func[indices] = input[[hl.max(hl.min(idx, max), min) for idx, (min, max) in zip(indices, clamps)]]
     return func
 
 
 def div(a, b):
     func = hl.Func("div")
     indices = [hl.Var() for _ in range(max(a.dimensions(), b.dimensions()))]
-    func.__setitem__(
-        indices,
-        a.__getitem__(indices[: a.dimensions()])
-        / (b.__getitem__(indices[: b.dimensions()]) / 2**11),
-    )
+    func[indices] = a[indices[: a.dimensions()]] / (b[indices[: b.dimensions()]] / 2**11)
     return func

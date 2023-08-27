@@ -26,8 +26,8 @@ def conv_1D(input, kernel, size, axis=0):
     for i in range(size):
         ind = indices.copy()
         ind[axis] = indices[axis] + i - size // 2
-        v = hl.cast(hl.Float(32), input.__getitem__(ind))
+        v = hl.cast(hl.Float(32), input[ind])
         summed = summed + v * kernel[i]
 
-    func.__setitem__(indices, summed)
+    func[indices] = summed
     return func

@@ -17,8 +17,8 @@ def unpack(input):
 def to_8bit(input):
     func = hl.Func("to_8bit")
     indices = [hl.Var() for _ in range(input.dimensions())]
-    value = hl.cast(hl.UInt(16), input.__getitem__(indices)) >> 4
+    value = hl.cast(hl.UInt(16), input[indices]) >> 4
     value = hl.min(value, 255.0)
     value = hl.cast(hl.UInt(8), value)
-    func.__setitem__(indices, value)
+    func[indices] = value
     return func

@@ -11,7 +11,7 @@ def gamma_lut(gamma=0.5, bits=12):
 def apply_lut_1D(input, lut):
     func = hl.Func("gamma_lut")
     indices = [hl.Var() for _ in range(input.dimensions())]
-    value = input.__getitem__(indices)
+    value = input[indices]
     value = lut[value]
-    func.__setitem__(indices, value)
+    func[indices] = value
     return func
