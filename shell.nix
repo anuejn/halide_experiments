@@ -1,14 +1,15 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import <nixpkgs> { } }:
 let
   halideWithPython = (pkgs.callPackage ./halide.nix { });
 in
 pkgs.mkShell {
   buildInputs = with pkgs; [
-      halideWithPython
-      python3
-      python3.pkgs.jupyter
-      python3.pkgs.numpy
-      python3.pkgs.imageio
+    halideWithPython
+    (python3.withPackages (ps: with ps; [
+      jupyter
+      numpy
+      imageio
+    ]))
   ];
 
   nativeBuildInputs = [ ];
