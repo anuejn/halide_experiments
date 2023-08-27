@@ -24,14 +24,16 @@ llvmPackages_15.stdenv.mkDerivation rec {
     owner = "halide";
     repo = "Halide";
     rev = "v${version}";
-    sha256 = "sha256-mnZ6QMqDr48bH2W+andGZj2EhajXKApjuW6B50xtzx0=";
+    sha256 = "sha256-lJQrXkJgBmGb/QMSxwuPkkHOSgEDowLWzIolp1km2Y8=";
   };
 
-  cmakeFlags = [ 
+  cmakeFlags = [
+    "-DWITH_TESTS=OFF"
+    "-DCMAKE_BUILD_TYPE=Release"
     "-DWARNINGS_AS_ERRORS=OFF"
     "-DTARGET_WEBASSEMBLY=OFF"
     ("-DWITH_PYTHON_BINDINGS=" + (if buildPythonBindings then "ON" else "OFF"))
-    "-DPYBIND11_USE_FETCHCONTENT=OFF" 
+    "-DPYBIND11_USE_FETCHCONTENT=OFF"
   ];
 
   # Note: only openblas and not atlas part of this Nix expression
