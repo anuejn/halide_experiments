@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Any, List
-from halide_blocks.byte import Reshape, To8Bit, Unpack
+from halide_blocks.byte import To8Bit, Unpack
 from halide_blocks.debayer import Debayer
 from halide_blocks.filter import Conv1D, Gauss
 import halide as hl
@@ -13,13 +13,13 @@ from halide_util import find_gpu_target
 from util import Div, Lightness
 
 image_bytes = np.fromfile(Path("~/data/axiom_raw/Darkbox-Timelapse-Clock-Sequence/tl-00.raw12").expanduser(), dtype='uint8')
-input_buffer = hl.Buffer(image_bytes)
+input_buffer = hl.Buffer(image_bytes.reshape((-1, 4096 * 3 // 2)))
+clamped = hl.BoundaryConditions.repeat_edge(input_buffer)
 output = hl.Buffer(hl.UInt(8), [4096, 3072, 3])
 
 
-unpacked = Unpack(input_buffer)
-reshaped = Reshape(unpacked.func)
-debayered = Debayer(reshaped.func, cfa="RGGB")
+unpacked = Unpack(clamped)
+debayered = Debayer(unpacked.func, cfa="RGGB")
 
 #lightness = Lightness(debayered.func)
 #blurred1 = Conv1D(lightness.func, Gauss(10, 10), axis=0)
