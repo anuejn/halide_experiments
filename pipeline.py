@@ -21,12 +21,12 @@ output = hl.Buffer(hl.UInt(8), [4096, 3072, 3])
 unpacked = Unpack(clamped)
 debayered = Debayer(unpacked.func, cfa="RGGB")
 
-#lightness = Lightness(debayered.func)
-#blurred1 = Conv1D(lightness.func, Gauss(10, 10), axis=0)
-#blurred2 = Conv1D(blurred1.func, Gauss(10, 10), axis=1)
+lightness = Lightness(debayered.func)
+blurred1 = Conv1D(lightness.func, Gauss(10, 10), axis=0)
+blurred2 = Conv1D(blurred1.func, Gauss(10, 10), axis=1)
 
-#div = Div(debayered.func, blurred2.func)
-in_8bit = To8Bit(debayered.func)
+div = Div(debayered.func, blurred2.func)
+in_8bit = To8Bit(div.func)
 
 
 in_8bit.func.set_estimates([
@@ -36,12 +36,13 @@ in_8bit.func.set_estimates([
 ])
 pipeline = hl.Pipeline(in_8bit.func)
 
-hl.load_plugin(str(Path(hl.__file__).parent.parent.parent.parent / 'libautoschedule_anderson2021.so'))
+gpu = True
+scheduler = "Anderson2021" if gpu else "Adams2019"
+hl.load_plugin(str(Path(hl.__file__).parent.parent.parent.parent / f'libautoschedule_{scheduler.lower()}.so'))
 target = find_gpu_target()
-# see https://halide-lang.org/docs/struct_halide_1_1_internal_1_1_autoscheduler_1_1_adams2019_params.html for autoscheduler parameters
-pipeline.apply_autoscheduler(target, hl.AutoschedulerParams("Anderson2021"))
+pipeline.apply_autoscheduler(target, hl.AutoschedulerParams(scheduler))
 
 pipeline.compile_jit(target)
-print(1 / (min(repeat(lambda: pipeline.realize(output), number=10, repeat=10)) / 10), "fps")
+print(1 / (min(repeat(lambda: pipeline.realize(output), number=1, repeat=1))), "fps")
 output.copy_to_host()
 halide.imageio.imwrite("output.png", output)
