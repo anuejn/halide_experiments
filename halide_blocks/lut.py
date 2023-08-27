@@ -1,20 +1,17 @@
 import halide as hl
 
-class GammaLut:
+
+def gamma_lut(gamma=0.5, bits=12):
     func = hl.Func("gamma_lut")
     i = hl.Var("i")
+    max_value = 2**bits - 1
+    func[i] = hl.u16(hl.clamp(hl.pow(i / float(max_value), hl.f32(gamma)) * float(max_value), 0, max_value))
+    return func
 
-    def __init__(self, gamma=0.5, bits=12):
-        max_value = 2**bits - 1
-        self.func[self.i] = hl.u16(hl.clamp(hl.pow(self.i / float(max_value), hl.f32(gamma)) * float(max_value), 0, max_value))
-
-
-class ApplyLut:
+def apply_lut_1D(input, lut):
     func = hl.Func("gamma_lut")
-    indices: List[hl.Var]
-
-    def __init__(self, input, lut):
-        self.indices = [hl.Var() for _ in range(input.dimensions())]
-        value = input.__getitem__(self.indices)
-        value = lut[value]
-        self.func.__setitem__(self.indices, value)
+    indices = [hl.Var() for _ in range(input.dimensions())]
+    value = input.__getitem__(indices)
+    value = lut[value]
+    func.__setitem__(indices, value)
+    return func

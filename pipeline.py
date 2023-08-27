@@ -1,40 +1,43 @@
 from pathlib import Path
 from typing import Any, List
-from halide_blocks.byte import To8Bit, Unpack
-from halide_blocks.debayer import Debayer
-from halide_blocks.filter import Conv1D, Gauss
 import halide as hl
 import halide.imageio
 import numpy as np
 from timeit import repeat
 from pathlib import Path
+from benchmark_util import benchmark
+from halide_blocks.byte import to_8bit, unpack
+from halide_blocks.debayer import debayer
+from halide_blocks.filter import conv_1D, gauss
+from halide_blocks.util import clamp, lightness, div
 from halide_util import find_gpu_target
 
-from util import Div, Lightness
 
 image_bytes = np.fromfile(Path("~/data/axiom_raw/Darkbox-Timelapse-Clock-Sequence/tl-00.raw12").expanduser(), dtype='uint8')
 input_buffer = hl.Buffer(image_bytes.reshape((-1, 4096 * 3 // 2)))
-clamped = hl.BoundaryConditions.repeat_edge(input_buffer)
+# clamped_input = hl.BoundaryConditions.repeat_edge(input_buffer)
 output = hl.Buffer(hl.UInt(8), [4096, 3072, 3])
 
 
-unpacked = Unpack(clamped)
-debayered = Debayer(unpacked.func, cfa="RGGB")
+unpacked = unpack(input_buffer)
+clamped = clamp(unpacked, (0, 4095), (0, 3071))
+debayered = debayer(clamped, cfa="RGGB")
 
-lightness = Lightness(debayered.func)
-blurred1 = Conv1D(lightness.func, Gauss(10, 10), axis=0)
-blurred2 = Conv1D(blurred1.func, Gauss(10, 10), axis=1)
+gray = lightness(debayered)
+kernel = gauss(10, 10)
+blurred1 = conv_1D(gray, kernel, 10, axis=0)
+blurred2 = conv_1D(blurred1, kernel, 10, axis=1)
 
-div = Div(debayered.func, blurred2.func)
-in_8bit = To8Bit(div.func)
+div = div(debayered, blurred2)
+in_8bit = to_8bit(div)
 
 
-in_8bit.func.set_estimates([
+in_8bit.set_estimates([
     hl.Range(4096, 4096),
     hl.Range(3072, 3072),
     hl.Range(3, 3)
 ])
-pipeline = hl.Pipeline(in_8bit.func)
+pipeline = hl.Pipeline(in_8bit)
 
 gpu = True
 scheduler = "Anderson2021" if gpu else "Adams2019"
@@ -43,6 +46,6 @@ target = find_gpu_target()
 pipeline.apply_autoscheduler(target, hl.AutoschedulerParams(scheduler))
 
 pipeline.compile_jit(target)
-print(1 / (min(repeat(lambda: pipeline.realize(output), number=1, repeat=1))), "fps")
+benchmark(lambda: pipeline.realize(output))
 output.copy_to_host()
 halide.imageio.imwrite("output.png", output)
