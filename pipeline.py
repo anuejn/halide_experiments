@@ -43,4 +43,5 @@ pipeline.apply_autoscheduler(target, hl.AutoschedulerParams("Anderson2021"))
 
 pipeline.compile_jit(target)
 print(1 / (min(repeat(lambda: pipeline.realize(output), number=10, repeat=10)) / 10), "fps")
+output.copy_to_host()
 halide.imageio.imwrite("output.png", output)
