@@ -5,6 +5,7 @@ import halide as hl
 import halide.imageio
 import numpy as np
 from timeit import repeat
+from pathlib import Path
 
 from util import Div, Lightness
 
@@ -94,33 +95,24 @@ reshaped = Reshape(unpacked.func)
 debayered = Debayer(reshaped.func, cfa="RGGB")
 
 lightness = Lightness(debayered.func)
-blurred1 = Conv1D(lightness.func, Gauss(100, 100), axis=0)
-blurred2 = Conv1D(blurred1.func, Gauss(100, 100), axis=1)
+blurred1 = Conv1D(lightness.func, Gauss(10, 10), axis=0)
+blurred2 = Conv1D(blurred1.func, Gauss(10, 10), axis=1)
 
 div = Div(debayered.func, blurred2.func)
 
 in_8bit = To8Bit(div.func)
+in_8bit.func.set_estimates([
+    hl.Range(4096, 4096),
+    hl.Range(3072, 3072),
+    hl.Range(3, 3)
+])
 
-### schedule
-x_outer, x_inner, y_outer, y_inner = hl.Var("x_outer"), hl.Var("x_inner"), hl.Var("y_outer"), hl.Var("y_inner")
 
-unpacked.func.store_at(in_8bit.func, y_outer)
-unpacked.func.compute_at(in_8bit.func, y_outer)
-unpacked.func.vectorize(unpacked.i, 128)
+pipeline = hl.Pipeline(in_8bit.func)
 
-blurred1.func.tile(blurred1.indices[0], blurred1.indices[1], x_outer, y_outer, x_inner, y_inner, 64, 32)
-blurred1.func.compute_at(in_8bit.func, y_outer)
-blurred1.func.store_at(in_8bit.func, y_outer)
-blurred1.func.vectorize(x_inner)
+hl.load_plugin(str(Path(hl.__file__).parent.parent.parent.parent / 'libautoschedule_adams2019.so'))
+pipeline.apply_autoscheduler(hl.get_target_from_environment(), hl.AutoschedulerParams("Adams2019"))
 
-in_8bit.func.tile(in_8bit.indices[0], in_8bit.indices[1], x_outer, y_outer, x_inner, y_inner, 64, 32)
-in_8bit.func.vectorize(x_inner)
-in_8bit.func.parallel(y_outer)
-
-blurred1.kernel.func.compute_root()
-blurred2.kernel.func.compute_root()
-
-in_8bit.func.realize(output)
-print(1 / (min(repeat(lambda: in_8bit.func.realize(output), number=10, repeat=10)) / 10), "fps")
-
+pipeline.compile_jit()
+print(1 / (min(repeat(lambda: pipeline.realize(output), number=10, repeat=10)) / 10), "fps")
 halide.imageio.imwrite("output.png", output)
