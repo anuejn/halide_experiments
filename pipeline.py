@@ -10,6 +10,7 @@ from halide_blocks.byte import to_8bit, unpack
 from halide_blocks.debayer import debayer
 from halide_blocks.filter import conv_1D, gauss
 from halide_blocks.util import clamp, lightness, div
+from halide_blocks.wavelet import wavelet
 from halide_util import find_gpu_target
 
 
@@ -24,12 +25,14 @@ unpacked = unpack(input_buffer)
 debayered = debayer(unpacked, cfa="RGGB")
 
 gray = lightness(debayered)
+
 kernel = gauss(10, 10)
 blurred1 = conv_1D(gray, kernel, 10, axis=0)
 blurred2 = conv_1D(blurred1, kernel, 10, axis=1)
-
 div = div(debayered, blurred2)
-in_8bit = to_8bit(debayered)
+
+
+in_8bit = to_8bit(wavelet(debayered, [4095, 3071, 3]))
 
 
 in_8bit.set_estimates([
