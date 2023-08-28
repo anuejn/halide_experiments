@@ -15,13 +15,13 @@ from halide_util import find_gpu_target
 
 image_bytes = np.fromfile(Path("~/data/axiom_raw/Darkbox-Timelapse-Clock-Sequence/tl-00.raw12").expanduser(), dtype='uint8')
 input_buffer = hl.Buffer(image_bytes.reshape((-1, 4096 * 3 // 2)))
-# clamped_input = hl.BoundaryConditions.repeat_edge(input_buffer)
+input_buffer = hl.BoundaryConditions.repeat_edge(input_buffer)
 output = hl.Buffer(hl.UInt(8), [4096, 3072, 3])
 
 
 unpacked = unpack(input_buffer)
-clamped = clamp(unpacked, (0, 4095), (0, 3071))
-debayered = debayer(clamped, cfa="RGGB")
+# unpacked = clamp(unpacked, (0, 4095), (0, 3071))
+debayered = debayer(unpacked, cfa="RGGB")
 
 gray = lightness(debayered)
 kernel = gauss(10, 10)
@@ -29,7 +29,7 @@ blurred1 = conv_1D(gray, kernel, 10, axis=0)
 blurred2 = conv_1D(blurred1, kernel, 10, axis=1)
 
 div = div(debayered, blurred2)
-in_8bit = to_8bit(div)
+in_8bit = to_8bit(debayered)
 
 
 in_8bit.set_estimates([
@@ -46,6 +46,6 @@ target = find_gpu_target()
 pipeline.apply_autoscheduler(target, hl.AutoschedulerParams(scheduler))
 
 pipeline.compile_jit(target)
-benchmark(lambda: pipeline.realize(output))
+benchmark(lambda: pipeline.realize(output, target))
 output.copy_to_host()
 halide.imageio.imwrite("output.png", output)
